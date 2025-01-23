@@ -1,11 +1,5 @@
-if vim.g.vscode then
-    -- VSCode extension
-else
-    -- ordinary Neovim
-end
-
 -- [basic config]
-
+--
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
@@ -30,9 +24,17 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 
 -- [keymap] 
 
+-- [vscode]
+--
+if vim.g.vscode then
+    -- VSCode extension
+else
+    -- ordinary Neovim
+end
 
--- bootstrap lazy.nvim, LazyVim and your plugins
+-- [[bootstrap lazy.nvim, LazyVim and your plugins]]
 require("config.lazy")
+
 
 
 
