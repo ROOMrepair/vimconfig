@@ -1,15 +1,15 @@
 -- [basic config]
---
-vim.g.mapleader = ' '
-vim.g.maplocalleader = ' '
 
-vim.o.number = true
-vim.o.relativenumber = true
+vim.g.mapleader = " "
+vim.g.maplocalleader = " "
 
-vim.o.scrolloff = 10
-vim.o.softtabstop = 4
-vim.o.shiftwidth = 4
-vim.o.cursorline = true
+vim.opt.number = true
+vim.opt.relativenumber = true
+
+vim.opt.scrolloff = 10
+vim.opt.softtabstop = 4
+vim.opt.shiftwidth = 4
+vim.opt.cursorline = true
 
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
@@ -22,20 +22,24 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
--- [keymap] 
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "*",
+  callback = function()
+    vim.opt_local.formatoptions:remove({ "c", "r", "o" })
+  end,
+})
 
 -- [vscode]
---
+
 if vim.g.vscode then
-    -- VSCode extension
+  -- VSCode extension
+
+  require("custom.vscode")
 else
-    -- ordinary Neovim
+  -- ordinary Neovim
+
 end
 
 -- [[bootstrap lazy.nvim, LazyVim and your plugins]]
+
 require("config.lazy")
-
-
-
-
-
