@@ -30,14 +30,13 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 
 -- [vscode]
-
 if vim.g.vscode then
   -- VSCode extension
-
   require("custom.vscode")
+  vim.g.minipairs_disable = true
+  vim.b.minipairs_disable = true
 else
   -- ordinary Neovim
-
 end
 
 -- [[bootstrap lazy.nvim, LazyVim and your plugins]]
