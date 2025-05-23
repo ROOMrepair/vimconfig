@@ -3,6 +3,7 @@
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
+vim.o.shell = "powershell"
 vim.opt.number = true
 vim.opt.relativenumber = true
 
@@ -14,9 +15,9 @@ vim.opt.cursorline = true
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 
-vim.api.nvim_create_autocmd('TextYankPost', {
-  desc = 'Highlight when yanking (copying) text',
-  group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
+vim.api.nvim_create_autocmd("TextYankPost", {
+  desc = "Highlight when yanking (copying) text",
+  group = vim.api.nvim_create_augroup("kickstart-highlight-yank", { clear = true }),
   callback = function()
     vim.highlight.on_yank()
   end,
@@ -37,8 +38,8 @@ if vim.g.vscode then
   vim.b.minipairs_disable = true
 else
   -- ordinary Neovim
+  -- require("custom.split")
 end
 
 -- [[bootstrap lazy.nvim, LazyVim and your plugins]]
-
 require("config.lazy")
