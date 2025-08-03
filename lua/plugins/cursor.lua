@@ -1,4 +1,4 @@
-if false then
+if vim.g.vscode then
   return {}
 else
   return {
