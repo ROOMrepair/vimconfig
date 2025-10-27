@@ -1,11 +1,21 @@
--- [basic config]
-
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
-vim.opt.shell = "powershell"
+--  theme
+vim.o.bg = "light"
+vim.g.moonflyTransparent = true
+vim.g.moonflyWinSeparator = 2
+
+-- vim.opt.shell = "cmd"
+vim.opt.shell = "pwsh" -- 或 "powershell"
+vim.opt.shellcmdflag = "-NoProfile -ExecutionPolicy RemoteSigned -Command"
+vim.opt.shellquote = "" -- 非空会导致路径加多余引号
+vim.opt.shellxquote = "" -- 非空会导致路径加多余引号
+
 vim.opt.number = true
+vim.opt.list = true
 vim.opt.relativenumber = true
+vim.opt.listchars = { tab = "| ", trail = "·", nbsp = " " }
 
 vim.opt.scrolloff = 10
 vim.opt.softtabstop = 4
@@ -15,22 +25,8 @@ vim.opt.cursorline = true
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 
-vim.keymap.set("i", "jj", "<Esc>", { noremap = true })
-
-vim.api.nvim_create_autocmd("TextYankPost", {
-  desc = "Highlight when yanking (copying) text",
-  group = vim.api.nvim_create_augroup("kickstart-highlight-yank", { clear = true }),
-  callback = function()
-    vim.highlight.on_yank()
-  end,
-})
-
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "*",
-  callback = function()
-    vim.opt_local.formatoptions:remove({ "c", "r", "o" })
-  end,
-})
+vim.lsp.config("luals", {})
+vim.lsp.enable({ "clangd", "luals" })
 
 -- [vscode]
 if vim.g.vscode then
@@ -39,9 +35,7 @@ if vim.g.vscode then
   vim.g.minipairs_disable = true
   vim.b.minipairs_disable = true
 else
-  -- ordinary Neovim
-  -- require("custom.split")
 end
-
+-- ordinary Neovim
 -- [[bootstrap lazy.nvim, LazyVim and your plugins]]
 require("config.lazy")

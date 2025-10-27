@@ -6,7 +6,6 @@ else
     branch = "master",
     lazy = false,
     build = ":TsUpdate",
-    cmd = { "TSUpdateSync", "TSUpdate", "TSInstall" },
     config = function()
       require("nvim-treesitter.configs").setup({
         ensure_installed = {
@@ -30,7 +29,6 @@ else
           enable = true,
         },
       })
-      vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()"
     end,
   }
 end
