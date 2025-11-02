@@ -1,34 +1,30 @@
-if vim.g.vscode then
-  return {}
-else
-  return {
-    "nvim-treesitter/nvim-treesitter",
-    branch = "master",
-    lazy = false,
-    build = ":TsUpdate",
-    config = function()
-      require("nvim-treesitter.configs").setup({
-        ensure_installed = {
-          "c",
-          "cpp",
-          "cmake",
-          "html",
-          "json",
-          "lua",
-          "vim",
-          "vimdoc",
-          "query",
-          "markdown",
-          "markdown_inline",
-        },
-        modules = {},
-        sync_install = false,
-        auto_install = true,
-        ignore_install = {},
-        highlight = {
-          enable = true,
-        },
-      })
-    end,
-  }
-end
+return {
+  "nvim-treesitter/nvim-treesitter",
+  branch = "master",
+  lazy = false,
+  build = ":TSUpdate",
+  config = function()
+    require("nvim-treesitter.configs").setup({
+      ensure_installed = {
+        "c",
+        "cpp",
+        "cmake",
+        "html",
+        "json",
+        "lua",
+        "vim",
+        "vimdoc",
+        "query",
+        "markdown",
+        "markdown_inline",
+      },
+      modules = {},
+      sync_install = false,
+      auto_install = true,
+      ignore_install = {},
+      highlight = {
+        enable = true,
+      },
+    })
+  end,
+}

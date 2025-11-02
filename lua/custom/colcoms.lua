@@ -1,5 +1,5 @@
--- stolen from
--- https://github.com/folke/todo-comments.nvim/blob/main/lua/todo-comments/highlight.lua
+--! stolen from
+--? https://github.com/folke/todo-comments.nvim/blob/main/lua/todo-comments/highlight.lua
 
 local M = {}
 local Cstyle = {
@@ -9,7 +9,7 @@ local Cstyle = {
 local hlGroup = {
   ["!"] = "attention",
   ["?"] = "question",
-  ["*"] = "star",
+  ["&"] = "andmark",
   ["#"] = "sharp",
 }
 
@@ -25,7 +25,7 @@ M.config = {
 
 M.checkBlock = {}
 M.commentBlockList = {}
-M.patterns = { "*.c", "*.cpp", "*.h", "*.hpp", "*.java", "*.lua", "*.py", "*.js", "*.ts", "*.sh", "*.html", "*.css" }
+M.commentInBlockList = {}
 M.commentSign = {
   c = Cstyle,
   cpp = Cstyle,
@@ -41,7 +41,7 @@ M.commentSign = {
     line = "--",
     block = { "--\\[\\[", "\\]\\]" },
   },
-  bash = {
+  sh = {
     line = "#",
   },
   html = {
@@ -54,6 +54,8 @@ M.commentSign = {
     block = { "/\\*", "\\*/" },
   },
 }
+M.patterns = { "*.c", "*.cpp", "*.h", "*.hpp", "*.java", "*.lua", "*.py", "*.js", "*.ts", "*.sh", "*.html", "*.css" }
+M.inBlockSign = "\\v ([!#&?]{2})"
 
 function M.addHlGroup()
   vim.api.nvim_set_hl(M.ns, hlGroup["!"], {
@@ -64,7 +66,7 @@ function M.addHlGroup()
     fg = "#4556d6",
   })
 
-  vim.api.nvim_set_hl(M.ns, hlGroup["*"], {
+  vim.api.nvim_set_hl(M.ns, hlGroup["&"], {
     fg = "#1b7544",
   })
 
@@ -84,12 +86,12 @@ function M.buildCommentRegex(buf)
   local bcomm1 = block and block[1] or nil
   local bcomm2 = block and block[2] or nil
   if lcomm then
-    local lre = "\\v" .. lcomm .. "([?#!*])"
+    local lre = "\\v" .. lcomm .. "([?#!&])"
     regexes.line = lre
   end
 
   if bcomm1 then
-    local bre = "\\v" .. bcomm1 .. "([?#!*])"
+    local bre = "\\v" .. bcomm1 .. "([?#!&])"
     local bre2 = "\\v" .. bcomm2
     regexes.block = { bre, bre2 }
   end
@@ -162,81 +164,88 @@ function M.is_comment(buf, row, col) -- col row 都是 0 index
   end
 end
 
-function M.match(str, patterns, isCatch, start_from) -- start_from works when isCatch == false
+function M.match(str, patterns, start_from)
   if #str > M.config.max_line_len then
     return
   end
-
   start_from = start_from or 0
   local tmp_start = M.config.max_line_len
   local tmp_match = ""
   local tmp_matchReg = ""
   local tmp_type = ""
-  -- 有捕获组
-  if isCatch then
-    for tp, pattern in pairs(patterns) do
-      local pat
-      if type(pattern) == "table" then
-        pat = pattern[1]
-      else
-        pat = pattern
-      end
-      local m = vim.fn.matchlist(str, pat, start_from) -- 0based
-      if #m > 1 and m[2] then
-        local start = str:find(m[1], start_from + 1, true) -- 1based
-        if start < tmp_start then
-          tmp_start = start
-          tmp_matchReg = m[1]
-          tmp_match = m[2]
-          tmp_type = tp
-        end
+  for tp, pattern in pairs(patterns) do
+    local pat
+    if type(pattern) == "table" then
+      pat = pattern[1]
+    else
+      pat = pattern
+    end
+    local m = vim.fn.matchlist(str, pat, start_from) -- 0based
+    if #m > 1 and m[2] then
+      local start = str:find(m[1], start_from + 1, true) -- 1based
+      if start < tmp_start then
+        tmp_start = start
+        tmp_matchReg = m[1]
+        tmp_match = m[2]
+        tmp_type = tp
       end
     end
-    if tmp_start < M.config.max_line_len then
-      return tmp_type, tmp_start, tmp_start + #tmp_matchReg, tmp_match -- 1based
-    end
-  else
-    for tp, pattern in pairs(patterns) do
-      local pat
-      if type(pattern) == "table" then
-        pat = pattern[1]
-      else
-        pat = pattern
-      end
-      local m = vim.fn.matchstrpos(str, pat, start_from)
-      if m[1] ~= "" and m[2] ~= -1 then
-        return tp, m[2] + 1, m[3] + 1, m[1] -- convert to 1based
-      end
-    end
+  end
+  if tmp_start < M.config.max_line_len then
+    return tmp_type, tmp_start, tmp_start + #tmp_matchReg, tmp_match -- 1based
+  end
+end
+
+function M.matchInBlockLine(str, start_from)
+  local m = vim.fn.matchlist(str, M.inBlockSign, start_from)
+  if #m > 1 and m[2] then
+    local matchSign = string.sub(m[2], 0, 1)
+    local start = str:find(m[1], start_from + 1, true) -- 1based
+    local finish = start + #m[1]
+    return start, finish, matchSign
   end
 end
 
 ---@param l { line:number,col:number}
 ---@param r { line:number,col:number}
-function M.pushcommentBlockList(buf, msign, l, r)
-  if not M.commentBlockList[buf] then
-    M.commentBlockList[buf] = {}
+---@param pos table
+function M.pushcommentBlockList(pos, buf, msign, l, r)
+  assert(l[1] < r[1] or (l[1] == r[1] and l[2] < r[2]))
+  if not pos then
+    return
   end
-  table.insert(M.commentBlockList[buf], { msign, l, r })
+
+  if not pos[buf] then
+    pos[buf] = {}
+  end
+
+  table.insert(pos[buf], { msign, l, r })
 end
 
 function M.add_highlights(buf)
   vim.api.nvim_set_hl_ns(M.ns)
   local cbuf = M.commentBlockList[buf]
-  if not cbuf then
-    return
+  local cibuf = M.commentInBlockList[buf]
+  if cbuf then
+    for _, block in pairs(cbuf) do
+      local hlg = hlGroup[block[1]] or "Comment"
+      vim.hl.range(buf, M.ns, hlg, block[2], block[3])
+    end
   end
 
-  for i, block in pairs(cbuf) do
-    local hlg = hlGroup[block[1]] or "Comment"
-    vim.hl.range(buf, M.ns, hlg, block[2], block[3])
+  if cibuf then
+    for _, block in pairs(cibuf) do
+      local hlg = hlGroup[block[1]] or "Comment"
+      vim.hl.range(buf, M.ns, hlg, block[2], block[3])
+    end
   end
 
   M.commentBlockList[buf] = {}
+  M.commentInBlockList[buf] = {}
 end
 
+--!! 不处理嵌套注释
 function M.highlight(buf, first, last)
-  -- print("M highlight first:", first, " last:", last)
   if not vim.api.nvim_buf_is_valid(buf) then
     return
   end
@@ -247,10 +256,10 @@ function M.highlight(buf, first, last)
   end
 
   local check_multiline = false
-  local isCatch = true
   local tmp_regex = regexes
   local l, r
-  local msign
+  local inBlockL, inBlockR
+  local msign, inblockSign
 
   local lines = vim.api.nvim_buf_get_lines(buf, first, last + 1, false)
   for i, line in ipairs(lines) do
@@ -263,11 +272,21 @@ function M.highlight(buf, first, last)
       if substr == "" then
         break
       end
-
-      local ok, tp, start, finish, match_sign = pcall(M.match, line, tmp_regex, isCatch, offset)
+      local ok, tp, start, finish, match_sign = pcall(M.match, line, tmp_regex, offset)
       if not ok or not start or not finish then
+        --  这个分支在check_multiline 时,一定是在 block 内的位置，即不和comment block 开头结尾的标志在同一行,匹配到则不会进入这个if block
+        if check_multiline then -- 此时一定处于 block comment 内吗?? 如果没有匹配到即 not ok 则说明没有闭合,则说明还在内部??
+          local iBStart, _, iBSign = M.matchInBlockLine(line, 0)
+          if iBStart then
+            inBlockL = { lnum, iBStart } -- 跳过空格
+            inBlockR = { lnum, line_width }
+            inblockSign = iBSign
+            M.pushcommentBlockList(M.commentInBlockList, buf, inblockSign, inBlockL, inBlockR)
+          end
+        end
         break
       end
+
       if not M.is_comment(buf, lnum, start - 1) then
         break
       end
@@ -277,25 +296,25 @@ function M.highlight(buf, first, last)
           l = { lnum, start - 1 }
           r = { lnum, line_width } -- exclusive end
           msign = match_sign
-          M.pushcommentBlockList(buf, msign, l, r)
+          M.pushcommentBlockList(M.commentBlockList, buf, msign, l, r)
           break
         end
         if tp == "block" and match_sign then
           check_multiline = true
-          isCatch = false
           tmp_regex = { block = regexes.block[2] }
           offset = finish - 1
           l = { lnum, start - 1 }
           msign = match_sign
         end
       else
+        -- tp == "line" 不会有这个分支
         if tp == "block" then -- match_sign == regexed.block[2] start finish 1based
           check_multiline = false
-          isCatch = true
+          -- isCatch = true
           tmp_regex = regexes
           offset = finish - 1
           r = { lnum, finish - 1 }
-          M.pushcommentBlockList(buf, msign, l, r)
+          M.pushcommentBlockList(M.commentBlockList, buf, msign, l, r)
         end
       end
     end
@@ -330,7 +349,6 @@ function M.matchExpandBlock(buf, first, last)
 
   local headerLineNum = first
   local tailLineNum = last
-  -- print("matchExpandBlock headerLineNum:",headerLineNum," tailLineNum:",tailLineNum)
   repeat
     local sr, _, _, _ = get_comment_range(buf, headerLineNum, 0)
     if not sr then
@@ -371,7 +389,6 @@ function M.Myupdate()
     M.timer:stop()
   end
   M.timer = nil
-  -- M.checkBlock[buf] = {} M.checkBlock[buf][lineNum] = true
   for buf, bufstate in pairs(M.checkBlock) do
     if vim.api.nvim_buf_is_valid(buf) then
       if not vim.tbl_isempty(bufstate) then
@@ -391,9 +408,6 @@ function M.Myupdate()
             expandedFirst = first
             expandedLast = last
           end
-
-          -- print("M.update first last: ", first, last)
-          -- print("M.update expaned first last: ",expandedFirst,expandedLast)
 
           local ok = pcall(vim.api.nvim_buf_clear_namespace, buf, M.ns, expandedFirst, expandedLast + 1)
           if not ok then
@@ -425,7 +439,6 @@ function M.attach(win)
         if not M.is_valid_buf(buf) then
           return true
         end
-        -- print("onlines first:", first, " last_old:", last_old, " last_new:", last_new)
         M.Myredraw(buf, first, last_new)
       end,
       on_detach = function()
@@ -438,12 +451,10 @@ function M.attach(win)
     if hl then
       hl.tree:register_cbs({
         on_bytes = function(bufid, changedtick, start_row, start_col, start_byte)
-          -- print("onbytes start_row:", start_row," start_col:",start_col)
           M.Myredraw(buf, start_row, start_row, 2)
         end,
         on_changedtree = function(changes)
           for i, ch in ipairs(changes or {}) do
-            -- print("onchangedTree first:", ch[1], " last:", ch[4])
             M.Myredraw(buf, ch[1], ch[4], 3)
           end
         end,
