@@ -1,5 +1,5 @@
 --! stolen from
---? https://github.com/folke/todo-comments.nvim/blob/main/lua/todo-comments/highlight.lua
+--! https://github.com/folke/todo-comments.nvim/blob/main/lua/todo-comments/highlight.lua
 
 local M = {}
 local Cstyle = {
@@ -16,7 +16,6 @@ local hlGroup = {
 M.tsp = require("nvim-treesitter.parsers")
 M.ns = vim.api.nvim_create_namespace("comment_sign")
 M.bufs = {}
-M.wins = {}
 M.state = {}
 M.config = {
   throttle = 200,
@@ -57,21 +56,49 @@ M.commentSign = {
 M.patterns = { "*.c", "*.cpp", "*.h", "*.hpp", "*.java", "*.lua", "*.py", "*.js", "*.ts", "*.sh", "*.html", "*.css" }
 M.inBlockSign = "\\v ([!#&?]{2})"
 
+local function get_comment_range(buf, row, col)
+  local node = vim.treesitter.get_node({ bufnr = buf, pos = { row, col } })
+  if not node then
+    return
+  end
+  if node:type() == "comment" then
+    local sr, sc, er, ec = node:range()
+    return sr, sc, er, ec
+  end
+  local parent = node:parent()
+  if parent and parent:type() then
+    local sr, sc, er, ec = node:range()
+    return sr, sc, er, ec
+  end
+end
+
 function M.addHlGroup()
+  local bg_default = "#2a2e36" -- 深灰蓝，护眼
+  local bg_warning = "#f3e075"
+  local fore_warning = "#e34f7c"
+
   vim.api.nvim_set_hl(M.ns, hlGroup["!"], {
-    fg = "#8c2659",
+    fg = fore_warning,
+    bg = bg_default,
+    bold = true,
   })
 
   vim.api.nvim_set_hl(M.ns, hlGroup["?"], {
-    fg = "#4556d6",
+    fg = "#61afef",
+    bg = bg_default,
+    bold = true,
   })
 
   vim.api.nvim_set_hl(M.ns, hlGroup["&"], {
-    fg = "#1b7544",
+    fg = "#98c379",
+    bg = bg_default,
+    bold = true,
   })
 
   vim.api.nvim_set_hl(M.ns, hlGroup["#"], {
-    fg = "#9e6324",
+    fg = "#e5c07b",
+    bg = bg_default,
+    bold = true,
   })
 end
 
@@ -134,22 +161,6 @@ function M.is_quickfix(buf)
   return vim.api.nvim_get_option_value("buftype", { buf = buf }) == "quickfix"
 end
 
-local function get_comment_range(buf, row, col)
-  local node = vim.treesitter.get_node({ bufnr = buf, pos = { row, col } })
-  if not node then
-    return
-  end
-  if node:type() == "comment" then
-    local sr, sc, er, ec = node:range()
-    return sr, sc, er, ec
-  end
-  local parent = node:parent()
-  if parent and parent:type() then
-    local sr, sc, er, ec = node:range()
-    return sr, sc, er, ec
-  end
-end
-
 function M.is_comment(buf, row, col) -- col row 都是 0 index
   if vim.treesitter.highlighter.active[buf] then
     local captures = vim.treesitter.get_captures_at_pos(buf, row, col)
@@ -206,9 +217,6 @@ function M.matchInBlockLine(str, start_from)
   end
 end
 
----@param l { line:number,col:number}
----@param r { line:number,col:number}
----@param pos table
 function M.pushcommentBlockList(pos, buf, msign, l, r)
   assert(l[1] < r[1] or (l[1] == r[1] and l[2] < r[2]))
   if not pos then
@@ -464,13 +472,13 @@ function M.attach(win)
 
     M.highlight(buf, 0, vim.api.nvim_buf_line_count(buf))
     M.add_highlights(buf)
-    M.wins[win] = true
+    -- M.wins[win] = true
     -- elseif not M.wins[win] then
   end
 end
 
 function M.stop()
-  M.wins = {}
+  -- M.wins = {}
   for buf, _ in pairs(M.bufs) do
     if vim.api.nvim_buf_is_valid(buf) then
       pcall(vim.api.nvim_buf_clear_namespace, buf, M.ns, 0, -1)

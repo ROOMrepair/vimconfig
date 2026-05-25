@@ -2,7 +2,66 @@ return {
   {
     "akinsho/toggleterm.nvim",
     version = "*",
-    opts = {--[[ things you want to change go here]]
-    },
+    config = function()
+      local purple = "#bd93f9"
+      local pink = "#ff79c6"
+
+      vim.api.nvim_set_hl(0, "MultiTermBorder", { fg = pink })
+
+      require("toggleterm").setup({
+        size = 40,
+        open_mapping = [[<C-\>]],
+        hide_numbers = true,
+        direction = "float",
+        float_opts = {
+          border = "curved",
+          winhighlight = "FloatBorder:MultiTermBorder",
+        },
+      })
+
+      local Terminal = require("toggleterm.terminal").Terminal
+      local terminals = {}
+
+      local function toggle_named_term(index)
+        local term_name = tostring(index)
+        if not terminals[term_name] then
+          terminals[term_name] = Terminal:new({
+            name = "Terminal " .. term_name,
+            direction = "float",
+            float_opts = {
+              border = {
+                { "╭", "MultiTermBorder" },
+                { "─", "MultiTermBorder" },
+                { "╮", "MultiTermBorder" },
+                { "│", "MultiTermBorder" },
+                { "╯", "MultiTermBorder" },
+                { "─", "MultiTermBorder" },
+                { "╰", "MultiTermBorder" },
+                { "│", "MultiTermBorder" },
+              },
+              winblend = 0,
+            },
+            on_open = function(term)
+              vim.cmd("startinsert!")
+              vim.api.nvim_buf_set_keymap(term.bufnr, "t", "<Esc>", [[<C-\><C-n>]], { noremap = true, silent = true })
+            end,
+            count = index,
+          })
+        end
+        terminals[term_name]:toggle()
+      end
+
+      for i = 1, 9 do
+        local key = string.format("<A-%d>", i)
+        -- local term_name = tostring(i)
+        local term_index = i
+        vim.keymap.set("n", key, function()
+          toggle_named_term(term_index)
+        end, { silent = true })
+        vim.keymap.set("t", key, function()
+          toggle_named_term(term_index)
+        end, { silent = true })
+      end
+    end,
   },
 }
