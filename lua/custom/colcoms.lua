@@ -2,17 +2,44 @@
 --! https://github.com/folke/todo-comments.nvim/blob/main/lua/todo-comments/highlight.lua
 
 local M = {}
-local Cstyle = {
+local bg_default = "#2a2e36"
+local MarkSignList = "[!?&^+]"
+local hlGroup = {
+  ["!"] = {
+    id = "attention",
+    fg = "#e34f7c",
+    bg = bg_default,
+  },
+  ["?"] = {
+    id = "question",
+    fg = "#61afef",
+    bg = bg_default,
+  },
+  ["&"] = {
+    id = "tochecklater",
+    fg = "#98c379",
+    bg = bg_default,
+  },
+  ["^"] = {
+    id = "marker",
+    fg = "#e5c07b",
+    bg = bg_default,
+  },
+  ["+"] = {
+    id = "todo",
+    fg = "#f57542",
+    bg = bg_default,
+  },
+}
+local CStyle = {
   line = "//",
   block = { "/\\*", "\\*/" },
 }
-local hlGroup = {
-  ["!"] = "attention",
-  ["?"] = "question",
-  ["&"] = "andmark",
-  ["#"] = "sharp",
+local ShellStype = {
+  line = "#",
 }
 
+M.inBlockSign = "\\v (" .. MarkSignList .. "{2})"
 M.tsp = require("nvim-treesitter.parsers")
 M.ns = vim.api.nvim_create_namespace("comment_sign")
 M.bufs = {}
@@ -26,35 +53,46 @@ M.checkBlock = {}
 M.commentBlockList = {}
 M.commentInBlockList = {}
 M.commentSign = {
-  c = Cstyle,
-  cpp = Cstyle,
-  java = Cstyle,
-  javascript = Cstyle,
-  typescript = Cstyle,
-  rust = Cstyle,
-  jsonc = Cstyle,
-  python = {
-    line = "#",
-  },
+  c = CStyle,
+  cpp = CStyle,
+  java = CStyle,
+  javascript = CStyle,
+  typescript = CStyle,
+  rust = CStyle,
+  jsonc = CStyle,
+  make = ShellStype,
+  cmake = ShellStype,
+  python = ShellStype,
+  sh = ShellStype,
   lua = {
     line = "--",
     block = { "--\\[\\[", "\\]\\]" },
   },
-  sh = {
-    line = "#",
-  },
   html = {
-    block = { "\\<!--", "--\\>" },
-  },
-  xml = {
     block = { "\\<!--", "--\\>" },
   },
   css = {
     block = { "/\\*", "\\*/" },
   },
 }
-M.patterns = { "*.c", "*.cpp", "*.h", "*.hpp", "*.java", "*.lua", "*.py", "*.js", "*.ts", "*.sh", "*.html", "*.css" }
-M.inBlockSign = "\\v ([!#&?]{2})"
+M.patterns = {
+  "*.c",
+  "*.cpp",
+  "*.h",
+  "*.hpp",
+  "*.java",
+  "*.lua",
+  "*.py",
+  "*.js",
+  "*.ts",
+  "*.sh",
+  "*.html",
+  "*.css",
+  "*.cmake",
+  "CmakeLists.txt",
+  "makefile",
+  "Makefile",
+}
 
 local function get_comment_range(buf, row, col)
   local node = vim.treesitter.get_node({ bufnr = buf, pos = { row, col } })
@@ -73,33 +111,13 @@ local function get_comment_range(buf, row, col)
 end
 
 function M.addHlGroup()
-  local bg_default = "#2a2e36" -- 深灰蓝，护眼
-  local bg_warning = "#f3e075"
-  local fore_warning = "#e34f7c"
-
-  vim.api.nvim_set_hl(M.ns, hlGroup["!"], {
-    fg = fore_warning,
-    bg = bg_default,
-    bold = true,
-  })
-
-  vim.api.nvim_set_hl(M.ns, hlGroup["?"], {
-    fg = "#61afef",
-    bg = bg_default,
-    bold = true,
-  })
-
-  vim.api.nvim_set_hl(M.ns, hlGroup["&"], {
-    fg = "#98c379",
-    bg = bg_default,
-    bold = true,
-  })
-
-  vim.api.nvim_set_hl(M.ns, hlGroup["#"], {
-    fg = "#e5c07b",
-    bg = bg_default,
-    bold = true,
-  })
+  for k, v in pairs(hlGroup) do
+    vim.api.nvim_set_hl(M.ns, hlGroup[k].id, {
+      fg = v.fg,
+      bg = v.bg,
+      bold = true,
+    })
+  end
 end
 
 function M.buildCommentRegex(buf)
@@ -113,12 +131,12 @@ function M.buildCommentRegex(buf)
   local bcomm1 = block and block[1] or nil
   local bcomm2 = block and block[2] or nil
   if lcomm then
-    local lre = "\\v" .. lcomm .. "([?#!&])"
+    local lre = "\\v" .. lcomm .. "(" .. MarkSignList .. ")"
     regexes.line = lre
   end
 
   if bcomm1 then
-    local bre = "\\v" .. bcomm1 .. "([?#!&])"
+    local bre = "\\v" .. bcomm1 .. "(" .. MarkSignList .. ")"
     local bre2 = "\\v" .. bcomm2
     regexes.block = { bre, bre2 }
   end
@@ -169,10 +187,8 @@ function M.is_comment(buf, row, col) -- col row 都是 0 index
         return true
       end
     end
-    return false
-  else
-    return false
   end
+  return false
 end
 
 function M.match(str, patterns, start_from)
@@ -184,6 +200,7 @@ function M.match(str, patterns, start_from)
   local tmp_match = ""
   local tmp_matchReg = ""
   local tmp_type = ""
+  -- tp 表示匹配单行 line 或多行 block
   for tp, pattern in pairs(patterns) do
     local pat
     if type(pattern) == "table" then
@@ -226,6 +243,11 @@ function M.pushcommentBlockList(pos, buf, msign, l, r)
   if not pos[buf] then
     pos[buf] = {}
   end
+  --[[
+    {buf1: {}
+    }
+
+  ]]
 
   table.insert(pos[buf], { msign, l, r })
 end
@@ -236,14 +258,15 @@ function M.add_highlights(buf)
   local cibuf = M.commentInBlockList[buf]
   if cbuf then
     for _, block in pairs(cbuf) do
-      local hlg = hlGroup[block[1]] or "Comment"
+      local hlg = hlGroup[block[1]].id or "Comment"
       vim.hl.range(buf, M.ns, hlg, block[2], block[3])
     end
   end
-
+  -- M.pushcommentBlockList(M.commentInBlockList, buf,
+  -- inblockSign, inBlockL, inBlockR)
   if cibuf then
     for _, block in pairs(cibuf) do
-      local hlg = hlGroup[block[1]] or "Comment"
+      local hlg = hlGroup[block[1]].id or "Comment"
       vim.hl.range(buf, M.ns, hlg, block[2], block[3])
     end
   end
@@ -258,6 +281,12 @@ function M.highlight(buf, first, last)
     return
   end
 
+  --[[
+  regexes = {
+    line = ""
+    block = {begin="",end=""}
+  }
+  ]]
   local regexes = M.buildCommentRegex(buf)
   if not regexes or (not regexes.line and not regexes.block) then
     return
@@ -270,11 +299,13 @@ function M.highlight(buf, first, last)
   local msign, inblockSign
 
   local lines = vim.api.nvim_buf_get_lines(buf, first, last + 1, false)
+  -- 换成linestr
   for i, line in ipairs(lines) do
     local offset = 0
     local line_width = #line
     local lnum = first + i - 1
 
+    -- offset 匹配处理行内注释 content /*ff*/ content
     while offset < line_width do
       local substr = line:sub(offset + 1) -- sub 1based
       if substr == "" then
@@ -282,13 +313,13 @@ function M.highlight(buf, first, last)
       end
       local ok, tp, start, finish, match_sign = pcall(M.match, line, tmp_regex, offset)
       if not ok or not start or not finish then
-        --  这个分支在check_multiline 时,一定是在 block 内的位置，即不和comment block 开头结尾的标志在同一行,匹配到则不会进入这个if block
-        if check_multiline then -- 此时一定处于 block comment 内吗?? 如果没有匹配到即 not ok 则说明没有闭合,则说明还在内部??
+        if check_multiline then
           local iBStart, _, iBSign = M.matchInBlockLine(line, 0)
           if iBStart then
             inBlockL = { lnum, iBStart } -- 跳过空格
             inBlockR = { lnum, line_width }
             inblockSign = iBSign
+            -- 在多行注释内部的单行注释
             M.pushcommentBlockList(M.commentInBlockList, buf, inblockSign, inBlockL, inBlockR)
           end
         end
