@@ -1,6 +1,6 @@
 return {
   "nvim-lualine/lualine.nvim",
-  dependencies = { "nvim-tree/nvim-web-devicons", "sainnhe/gruvbox-material" },
+  dependencies = { "nvim-tree/nvim-web-devicons" },
   config = function()
     local colors = {
       none = "none",
@@ -74,13 +74,13 @@ return {
       local file = vim.fn.fnamemodify(bufname, ":p")
       local root
 
-      -- 1️⃣ 优先用 LSP root
+      -- 优先用 LSP root
       local clients = vim.lsp.get_active_clients({ bufnr = 0 })
       if #clients > 0 then
         root = clients[1].config.root_dir
       end
 
-      -- 2️⃣ fallback 到 cwd
+      --  fallback 到 cwd
       if not root or root == "" then
         root = vim.loop.cwd()
       end
@@ -101,7 +101,7 @@ return {
     require("lualine").setup({
       options = {
         icons_enabled = true,
-        theme = "gruvbox-material",
+        theme = "auto",
         component_separators = { left = "", right = "" },
         section_separators = { left = "", right = "" },
         disabled_filetypes = {
